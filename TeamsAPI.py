@@ -1,51 +1,46 @@
-"""
 import requests
+from msal import ConfidentialClientApplication
 
+# Deine Azure AD App-Registrierung Details
+CLIENT_ID = '8d569605-f732-4dae-a941-613a57540d61'
+CLIENT_SECRET = 'kHJ8Q~etqAu4LBEaycmRDY1GNXFRKhS6FRqGndpL'
+TENANT_ID = '7a60a9cc-0250-4d36-8c3f-ab33f485862d'
 
-response = requests.get("https://graph.microsoft.com/v1.0/me")
-        
-connection = response.status_code
-print(connection)
-"""
-"""
-Client Secret: Geheime ID: ffa023a2-86d5-496f-92a3-d6d63f5fa4ae
-               Wert: kHJ8Q~etqAu4LBEaycmRDY1GNXFRKhS6FRqGndpL
-"""
-import requests
+# Endpoint für die Authentifizierung
+AUTHORITY = f"https://login.microsoftonline.com/{TENANT_ID}"
+SCOPE = ["https://graph.microsoft.com/.default"]
+GRAPH_API_ENDPOINT = "https://graph.microsoft.com/v1.0"
 
-# Konfigurationsdaten für deine Anwendung in Azure AD
-client_id = '8d569605-f732-4dae-a941-613a57540d61'
-client_secret = 'kHJ8Q~etqAu4LBEaycmRDY1GNXFRKhS6FRqGndpL'
-tenant_id = '7a60a9cc-0250-4d36-8c3f-ab33f485862d'
-resource = 'https://graph.microsoft.com'
+# Erstellen der MSAL Anwendung
+app = ConfidentialClientApplication(
+    CLIENT_ID,
+    authority=AUTHORITY,
+    client_credential=CLIENT_SECRET,
+)
 
-# Token-Endpunkt
-token_url = f"https://login.microsoftonline.com/{tenant_id}/oauth2/token"
+# Holen des Tokens
+result = app.acquire_token_for_client(scopes=SCOPE)
 
-# Daten für die Anforderung des Zugriffstokens
-data = {
-    'grant_type': 'client_credentials',
-    'client_id': client_id,
-    'client_secret': client_secret,
-    'resource': resource
-}
+if "access_token" in result:
+    access_token = result["access_token"]
+    print("Access Token erhalten.")
+    print(access_token)
+    
+    # Anfrage an die Graph API um alle Assignments zu bekommen
+    assignments_endpoint = f"{GRAPH_API_ENDPOINT}/education/me/assignments"
+    headers = {
+        "Authorization": f"Bearer {access_token}"
+    }
 
-# Zugriffstoken abrufen
-response = requests.post(token_url, data=data)
-access_token = response.json()['access_token']
-
-# Beispielanfrage an die Microsoft Graph API (hier: Benutzerprofil)
-api_endpoint = 'https://graph.microsoft.com/v1.0//me/planner/tasks'
-headers = {
-    'Authorization': 'Bearer ' + access_token,
-    'Accept': 'application/json'
-}
-response = requests.get(api_endpoint, headers=headers)
-
-# Antwort verarbeiten
-if response.status_code == 200:
-    user_profile = response.json()
-    print("Benutzerprofil:")
-    print(user_profile)
+    response = requests.get(assignments_endpoint, headers=headers)
+    if response.status_code == 200:
+        assignments = response.json()
+        print("Assignments:")
+        print(assignments)
+    else:
+        print(f"Fehler beim Abrufen der Assignments: {response.status_code}")
+        print(response.json())
 else:
-    print(f"Fehler bei der Anfrage an die Microsoft Graph API: {response.text}")
+    print("Fehler beim Abrufen des Access Tokens:")
+    print(result.get("error"))
+    print(result.get("error_description"))
